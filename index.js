@@ -4,6 +4,7 @@ const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require(
 const { token } = require('./config.json');
 const voiceStateMap = new Map();
 
+const { updateUserState } = require('./voice/voiceManager');
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
@@ -108,6 +109,10 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
 	!voiceSnapshot.selfMuted &&
 	!voiceSnapshot.serverMuted &&
 	!voiceSnapshot.deafened;
+
+	const guildId = newState.guild.id;
+
+	updateUserState(guildId, userId, isActive);
 
 	console.log({
 		userId,
