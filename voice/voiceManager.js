@@ -1,5 +1,6 @@
 const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
-const { wsSend } = require('./server/websocketServer');
+const { wsSend } = require('../server/websocketServer');
+
 
 const voiceConnections = {};
 
@@ -75,12 +76,15 @@ function updateUserState(guildId, userId, isActive) {
 	updateCombinedState(guildId, userId);
 }
 
-// const { broadcast } = require('../server/websocketServer');
+const THROTTLE_MS = 150;
 
-// Combine isActive + speaking to determine actual talking state
 function updateCombinedState(guildId, userId) {
 	const vc = voiceConnections[guildId];
 	if (!vc) return;
+
+	if (!vc.lastSentAt) {
+		vc.lastSentAt = {};
+	}
 
 	const active = vc.userActiveState[userId] || false;
 	const speaking = vc.speakingState[userId] || false;
@@ -91,12 +95,23 @@ function updateCombinedState(guildId, userId) {
 		console.log(`Signal: ${userId} isTalking=${combined}`);
 		vc.combinedState[userId] = combined;
 
+		const now = Date.now();
+		const lastSent = vc.lastSentAt[userId] || 0;
+		const timeSinceLast = now - lastSent;
+
+		// --- THROTTLE CHECK ---
+		if (timeSinceLast < THROTTLE_MS) {
+			return; // too soon, skip sending
+		}
+
+		vc.lastSentAt[userId] = now;
+
 		const message = {
 			type: 'voiceUpdate',
 			guildId,
 			userId,
 			isTalking: combined,
-			timestamp: Date.now(),
+			timestamp: now,
 		};
 
 		console.log('Sending message:', message); // optional debug
